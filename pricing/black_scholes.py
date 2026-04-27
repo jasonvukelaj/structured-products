@@ -41,8 +41,10 @@ class Option:
             return max(self.S-self.K, 0)
         if self.option_type == "put":
             return max(self.K-self.S, 0)
-
-
+        
+    def __repr__(self):
+        return f"{self.option_type.upper()} | S: ${self.S} K: ${self.K} T: {self.T} year(s) r: {self.r*100}% σ: {self.sigma*100}% | {self.moneyness} | IV: ${self.intrinsic_value}"
+        
 class Call(Option):
 
     def __init__(self, S, K, T, r, sigma):
@@ -66,7 +68,6 @@ class Put(Option):
         return self.payoff(S_T) - premium
 
 
-
 def black_scholes(S, K, T, r, sigma, option_type="call"):
     """
     Price a euro call or put using BS.
@@ -85,7 +86,6 @@ def black_scholes(S, K, T, r, sigma, option_type="call"):
     Raises:
         ValueError if T is negative or option_type is invalid
     """
-
 
     if T < 0:
         raise ValueError("T must be non-negative")
@@ -108,16 +108,19 @@ def black_scholes(S, K, T, r, sigma, option_type="call"):
         return K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
 
 
+def test_put_call_parity(S, K, T, r, sigma):
+    """validates BS pricer by checking C - P = S - Ke^(-rT)."""
 
-if __name__ == "__main__":
-    call = Call(S=105, K=100, T=1, r=0.05, sigma=0.2)
-    print(call.moneyness)          # ITM
-    print(call.intrinsic_value)    # 5
-    print(call.payoff(110))        # 10
-    print(call.profit(110, 5))     # 5
+    lhs = black_scholes(S, K, T, r, sigma, option_type="call") - black_scholes(S, K, T, r, sigma, option_type="put")
+    rhs = S - K*np.exp(-r*T) 
 
-    put = Put(S=105, K=100, T=1, r=0.05, sigma=0.2)
-    print(put.moneyness)           # OTM
-    print(put.intrinsic_value)     # 0
-    print(put.payoff(90))          # 10
-    print(put.profit(90, 3))       # 7
+    print(f"Left side of Put-Call parity = {lhs}")
+    print(f"Right side of Put-Call parity = {rhs}")
+
+    if abs(lhs - rhs) < 1e-10:
+        print("Put-Call Parity is True")
+    else: 
+        print("Put-Call Parity is False")
+
+
+# if __name__ == "__main__":
