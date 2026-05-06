@@ -11,6 +11,15 @@ class Option:
         self.T = T
         self.r = r
         self.sigma = sigma
+
+        if not isinstance(option_type, str):
+            raise ValueError("option_type must be a string")
+        
+        option_type = option_type.lower()
+
+        if not self.is_valid_type(option_type):
+            raise ValueError(f"option_type must be 'call' or 'put', got {option_type!r}")
+        
         self.option_type = option_type
 
     @staticmethod
@@ -30,7 +39,7 @@ class Option:
         elif self.option_type == "put":
             if self.S < self.K:
                 return "ITM"
-            if self.S == self.K:
+            elif self.S == self.K:
                 return "ATM"
             else:
                 return "OTM"
@@ -38,9 +47,10 @@ class Option:
     @property
     def intrinsic_value(self):
         if self.option_type == "call":
-            return max(self.S-self.K, 0)
-        if self.option_type == "put":
-            return max(self.K-self.S, 0)
+            return max(self.S - self.K, 0)
+        
+        elif self.option_type == "put":
+            return max(self.K - self.S, 0)
         
     def __repr__(self):
         return f"{self.option_type.upper()} | S: ${self.S} K: ${self.K} T: {self.T} year(s) r: {self.r*100}% σ: {self.sigma*100}% | {self.moneyness} | IV: ${self.intrinsic_value}"
@@ -68,6 +78,20 @@ class Put(Option):
         return self.payoff(S_T) - premium
 
 
+def validate_black_scholes_inputs(S, K, T, sigma, option_type):
+    if S <= 0:
+        raise ValueError("S must be positive")
+    if K <= 0:
+        raise ValueError("K must be positive")
+    if T <= 0:
+        raise ValueError("T must be positive")
+    if sigma <= 0:
+        raise ValueError("sigma must be positive")
+    if not isinstance(option_type, str):
+        raise ValueError("option_type must be a string")
+    if option_type.lower() not in ("call", "put"):
+        raise ValueError(f"option_type must be 'call' or 'put', got {option_type!r}")
+
 def black_scholes(S, K, T, r, sigma, option_type="call"):
     """
     Price a euro call or put using BS.
@@ -82,15 +106,11 @@ def black_scholes(S, K, T, r, sigma, option_type="call"):
     
     Returns: 
         option price
-
-    Raises:
-        ValueError if T is negative or option_type is invalid
     """
 
-    if T < 0:
-        raise ValueError("T must be non-negative")
-    if option_type not in ("call","put"):
-        raise ValueError(f"option_type must be 'call' or 'put', got {option_type!r}")
+    # validator
+    validate_black_scholes_inputs(S, K, T, sigma, option_type)
+    option_type=option_type.lower()
 
     # d1 components
     log_moneyness = np.log(S/K) 
@@ -100,7 +120,6 @@ def black_scholes(S, K, T, r, sigma, option_type="call"):
 
     d1 = (log_moneyness + drift_term) / vol_scaling
     d2 = d1 - vol_scaling
-
   
     if option_type == "call":
         return S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
@@ -109,18 +128,23 @@ def black_scholes(S, K, T, r, sigma, option_type="call"):
 
 
 def test_put_call_parity(S, K, T, r, sigma):
-    """validates BS pricer by checking C - P = S - Ke^(-rT)."""
 
     lhs = black_scholes(S, K, T, r, sigma, option_type="call") - black_scholes(S, K, T, r, sigma, option_type="put")
-    rhs = S - K*np.exp(-r*T) 
+    rhs = S - K * np.exp(-r * T) 
 
-    print(f"Left side of Put-Call parity = {lhs}")
-    print(f"Right side of Put-Call parity = {rhs}")
+    print(f"Left side of Put-Call parity = ${lhs:.2f}")
+    print(f"Right side of Put-Call parity = ${rhs:.2f}")
 
-    if abs(lhs - rhs) < 1e-10:
+    if abs(lhs - rhs) < 1e-10:  # prevents potential floating-point rounding errors
         print("Put-Call Parity is True")
     else: 
         print("Put-Call Parity is False")
 
+if __name__ == "__main__":
 
-# if __name__ == "__main__":
+    c = black_scholes(100, 100, 1, 0.05, 0.2, "call")
+    p = black_scholes(100, 100, 1, 0.05, 0.2, "put")
+
+    print(f"Call price: {c:.2f}")
+    print(f"Put price: {p:.2f}")
+    test_put_call_parity(100, 100, 1, 0.05, 0.2)
