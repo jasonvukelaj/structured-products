@@ -91,6 +91,18 @@ def validate_black_scholes_inputs(S, K, T, sigma, option_type):
         raise ValueError("option_type must be a string")
     if option_type.lower() not in ("call", "put"):
         raise ValueError(f"option_type must be 'call' or 'put', got {option_type!r}")
+    
+def d1(S, K, T, r, sigma):
+
+    log_moneyness = np.log(S / K)
+    drift = (r + 0.5 * sigma**2) * T
+    vol_scaling = sigma * np.sqrt(T)
+
+    return (log_moneyness + drift) / vol_scaling
+
+def d2(S, K, T, r, sigma):
+
+    return d1(S, K, T, r, sigma) - sigma * np.sqrt(T)
 
 def black_scholes(S, K, T, r, sigma, option_type="call"):
     """
@@ -110,21 +122,15 @@ def black_scholes(S, K, T, r, sigma, option_type="call"):
 
     # validator
     validate_black_scholes_inputs(S, K, T, sigma, option_type)
-    option_type=option_type.lower()
-
-    # d1 components
-    log_moneyness = np.log(S/K) 
-    drift_term = (r + 0.5 * sigma**2) * T
-    vol_scaling = sigma * np.sqrt(T)
-
-
-    d1 = (log_moneyness + drift_term) / vol_scaling
-    d2 = d1 - vol_scaling
+    option_type = option_type.lower()
+    
+    d1_val = d1(S, K, T, r, sigma)
+    d2_val = d2(S, K, T, r, sigma)
   
     if option_type == "call":
-        return S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
+        return S * norm.cdf(d1_val) - K * np.exp(-r * T) * norm.cdf(d2_val)
     else:  # put
-        return K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+        return K * np.exp(-r * T) * norm.cdf(-d2_val) - S * norm.cdf(-d1_val)
 
 
 def test_put_call_parity(S, K, T, r, sigma):
@@ -145,6 +151,6 @@ if __name__ == "__main__":
     c = black_scholes(100, 100, 1, 0.05, 0.2, "call")
     p = black_scholes(100, 100, 1, 0.05, 0.2, "put")
 
-    print(f"Call price: {c:.2f}")
-    print(f"Put price: {p:.2f}")
+    print(f"Call price: ${c:.2f}")
+    print(f"Put price: ${p:.2f}")
     test_put_call_parity(100, 100, 1, 0.05, 0.2)
